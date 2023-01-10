@@ -1,10 +1,9 @@
 defmodule KwordleWeb.Components.RoomComponents do
   use Phoenix.Component
 
-  def room_id(assigns) do
+  def show_word(assigns) do
     ~H"""
-    <p>Current room: <%= @room %></p>
-    <p><%= @str %></p>
+    <p><%= @word %></p>
     """
   end
 end

@@ -7,16 +7,21 @@ defmodule KwordleWeb.RoomLive do
     end
     {:ok, socket
       |> assign(:room, room)
-      |> assign(:str, Kwordle.Room.get_a(room))
+      |> assign(:str, Kwordle.Room.get_word(room, :player_a))
+      |> assign(:board, [])
     }
   end
 
-  def handle_event("key_up", _params = %{"key" => key}, socket) do
+  def handle_event("key_down", _params = %{"key" => key}, socket) do
     cond do
-      String.match?(key, ~r/^[a-z]$/) -> Kwordle.Room.add_a(socket.assigns.room)
-      key == "Enter" -> IO.puts("pressed enter")
+      String.match?(key, ~r/^[a-zA-Z]$/) -> Kwordle.Room.append_char(socket.assigns.room, key, :player_a)
+      key == "Enter" -> Kwordle.Room.submit_word(socket.assigns.room, :player_a)
+      key == "Backspace" or key == "Delete" -> Kwordle.Room.remove_char(socket.assigns.room, :player_a)
       true -> :nothing
     end
-    {:noreply, assign(socket, :str, Kwordle.Room.get_a(socket.assigns.room))}
+    {:noreply, socket
+      |> assign(:str, Kwordle.Room.get_word(socket.assigns.room, :player_a))
+      |> assign(:board, Kwordle.Room.get_board(socket.assigns.room, :player_a))
+    }
   end
 end

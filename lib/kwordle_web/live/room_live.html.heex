@@ -1,4 +1,8 @@
-<div phx-window-keyup="key_up">
-  <h2>Survey</h2>
-  <KwordleWeb.Components.RoomComponents.room_id room={@room} str={@str}/>
+<div phx-window-keydown="key_down">
+  <p>Current room: <%= @room %></p>
+  <h2>Words</h2>
+  <%= for word <- @board do %>
+    <KwordleWeb.Components.RoomComponents.show_word word={word} />
+  <% end %>
+  <KwordleWeb.Components.RoomComponents.show_word word={@str} />
 </div>
