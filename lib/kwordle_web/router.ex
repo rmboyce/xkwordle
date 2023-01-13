@@ -18,7 +18,7 @@ defmodule KwordleWeb.Router do
     pipe_through :browser
 
     get "/", CreateRoomController, :index
-    live "/room/:room", RoomLive
+    live "/room/:room/:player", RoomLive
     get "/page", PageController, :index
   end
 

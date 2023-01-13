@@ -1,5 +1,6 @@
 <div phx-window-keydown="key_down">
   <p>Current room: <%= @room %></p>
+  <p>Player: <%= @player %></p>
   <h2>Words</h2>
   <div class="flex">
     <div class="flex justify-center items-center grow overflow-hidden">
@@ -7,9 +8,13 @@
         <%= for {word, colors} <- @board do %>
           <KwordleWeb.Components.RoomComponents.show_word word={word} colors={colors} />
         <% end %>
-        <KwordleWeb.Components.RoomComponents.show_word word={@str} colors={nil} />
-        <%= for _ <- 1..(6 - 1 - length(@board)) do %>
-          <KwordleWeb.Components.RoomComponents.show_word word={""} colors={nil} />
+        <%= if length(@board) < 6 do %>
+          <KwordleWeb.Components.RoomComponents.show_word word={@str} colors={nil} />
+        <% end %>
+        <%= if length(@board) < 5 do %>
+          <%= for _ <- 1..(6 - 1 - length(@board)) do %>
+            <KwordleWeb.Components.RoomComponents.show_word word={""} colors={nil} />
+          <% end %>
         <% end %>
       </div>
     </div>
