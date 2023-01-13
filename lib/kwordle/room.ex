@@ -14,7 +14,7 @@ defmodule Kwordle.Room do
         Agent,
         :start_link,
         [
-          fn -> %{:player_a => ["", []], :player_b => ["", []]} end,
+          fn -> %{:player_a => ["", []], :player_b => ["", []], :target => "watey"} end,
           [name: get_room_id(room_name)]
         ]
       }
@@ -52,6 +52,10 @@ defmodule Kwordle.Room do
     get_room_state(room_name, fn %{:player_b => [word, _board]} -> word end)
   end
 
+  defp get_hidden_word(room_name) do
+    get_room_state(room_name, fn %{:target => word} -> word end)
+  end
+
   def get_board(room_name, :player_a) do
     get_room_state(room_name, fn %{:player_a => [_word, board]} -> Enum.reverse(board) end)
   end
@@ -86,27 +90,30 @@ defmodule Kwordle.Room do
 
   def submit_word(room_name, :player_a) do
     word = get_word(room_name, :player_a)
-    if String.length(word) == 5 do
-      if word in word_list() do
-        #IO.puts("valid word")
-        update_room_state(
-          room_name,
-          fn map = %{:player_a => [word, board]} -> %{map | :player_a => ["", [word | board]]} end
-        )
-      end
+    hidden_word = get_hidden_word(room_name)
+    if String.length(word) == 5 and valid_word(word) do
+      #IO.puts(check_word(room_name, word))
+      update_room_state(
+        room_name,
+        fn map = %{:player_a => [word, board]} ->
+          %{map | :player_a => ["", [{word, check_word(hidden_word, word)} | board]]}
+        end
+      )
     end
   end
 
   def submit_word(room_name, :player_b) do
     word = get_word(room_name, :player_b)
-    if String.length(word) == 5 do
-      if word in word_list() do
-        #IO.puts("valid word")
-        update_room_state(
-          room_name,
-          fn map = %{:player_b => [_word, board]} -> %{map | :player_b => ["", [word | board]]} end
-        )
-      end
+    hidden_word = get_hidden_word(room_name)
+    if String.length(word) == 5 and valid_word(word) do
+      #IO.puts("valid word")
+      update_room_state(
+        room_name,
+        fn map = %{:player_b => [_word, board]} ->
+          %{map | :player_b => ["", [{word, check_word(hidden_word, word)} | board]]}
+        end
+      )
+      check_word(room_name, word)
     end
   end
 
@@ -118,7 +125,28 @@ defmodule Kwordle.Room do
     Agent.update(get_room_id(room_name), update_f)
   end
 
+  defp valid_word(word) do
+    String.downcase(word) in word_list()
+  end
+
   defp word_list() do
     ["water", "hello"]
+  end
+
+  defp get_random_word() do
+    Enum.random(word_list())
+  end
+
+  defp check_word(hidden_word, word) do
+    zipped_chars = Enum.zip(
+      String.graphemes(hidden_word),
+      String.graphemes(String.downcase(word))
+    )
+    Enum.map(zipped_chars,
+      fn
+        {c, c} -> :right
+        {_, c} -> if String.contains?(hidden_word, c) do :contained else :wrong end
+      end
+    )
   end
 end

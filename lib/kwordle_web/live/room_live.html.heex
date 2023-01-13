@@ -4,12 +4,12 @@
   <div class="flex">
     <div class="flex justify-center items-center grow overflow-hidden">
       <div class="grid grid-rows-6 gap-5 box-border" style="width: 350px;">
-        <%= for word <- @board do %>
-          <KwordleWeb.Components.RoomComponents.show_word word={word} />
+        <%= for {word, colors} <- @board do %>
+          <KwordleWeb.Components.RoomComponents.show_word word={word} colors={colors} />
         <% end %>
-        <KwordleWeb.Components.RoomComponents.show_word word={@str} />
+        <KwordleWeb.Components.RoomComponents.show_word word={@str} colors={nil} />
         <%= for _ <- 1..(6 - 1 - length(@board)) do %>
-          <KwordleWeb.Components.RoomComponents.show_word word={""} />
+          <KwordleWeb.Components.RoomComponents.show_word word={""} colors={nil} />
         <% end %>
       </div>
     </div>
