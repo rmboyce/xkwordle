@@ -88,7 +88,7 @@ defmodule Kwordle.Room do
     word = get_word(room_name, :player_a)
     if String.length(word) == 5 do
       if word in word_list() do
-        IO.puts("valid word")
+        #IO.puts("valid word")
         update_room_state(
           room_name,
           fn map = %{:player_a => [word, board]} -> %{map | :player_a => ["", [word | board]]} end
@@ -101,7 +101,7 @@ defmodule Kwordle.Room do
     word = get_word(room_name, :player_b)
     if String.length(word) == 5 do
       if word in word_list() do
-        IO.puts("valid word")
+        #IO.puts("valid word")
         update_room_state(
           room_name,
           fn map = %{:player_b => [_word, board]} -> %{map | :player_b => ["", [word | board]]} end
