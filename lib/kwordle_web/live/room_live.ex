@@ -5,12 +5,23 @@ defmodule KwordleWeb.RoomLive do
     if !Kwordle.Room.exists(room) do
       Kwordle.Room.start_room(room)
     end
+    #if connected?(socket) do
+    #  Process.send_after(self(), :check_players, 1000)
+    #end
+
+    IO.inspect(self())
     {:ok, socket
       |> assign(:room, room)
       |> assign(:player, player)
       |> assign(:str, "")
       |> assign(:board, [])
     }
+  end
+
+  def handle_info(:check_players, socket) do
+    #Process.send_after(self(), :check_players, 1000)
+    #{:ok, temperature} = Thermostat.get_reading(socket.assigns.user_id)
+    #{:noreply, assign(socket, :temperature, temperature)}
   end
 
   def handle_event("key_down", _params = %{"key" => "Enter"}, socket) do
