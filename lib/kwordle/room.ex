@@ -1,7 +1,8 @@
 defmodule Kwordle.Room do
   @moduledoc """
-  The room context.
+  Context describing a room that each game of kwordle takes place in.
   """
+
   def exists(room_name) do
     Registry.lookup(Kwordle.RoomRegistry, room_name) != []
   end
@@ -14,7 +15,14 @@ defmodule Kwordle.Room do
         Agent,
         :start_link,
         [
-          fn -> %{"a" => ["", []], "b" => ["", []], :target => get_random_word(), :winner => nil} end,
+          fn ->
+            %{
+              "a" => [nil, "", []],
+              "b" => [nil, "", []],
+              :target => get_random_word(),
+              :winner => nil
+            }
+          end,
           [name: get_room_id(room_name)]
         ]
       }
@@ -23,33 +31,66 @@ defmodule Kwordle.Room do
     IO.puts(get_hidden_word(room_name))
   end
 
+  def join_room(room_name, player, pid) do
+    update_room_state(
+      room_name,
+      fn map = %{^player => [_, word, board]} -> %{map | player => [pid, word, board]} end
+    )
+  end
+
+
   defp get_room_id(room_name) do
     {:via, Registry, {Kwordle.RoomRegistry, room_name}}
   end
 
-  def append_char(room_name, c, player) do
-    if String.length(get_word(room_name, player)) < 5 and get_winner(room_name) == nil do
-      update_room_state(
-        room_name,
-        fn map = %{^player => [word, board]} -> %{map | player => [word <> c, board]} end
-      )
+  defp get_room_state(room_name, get_fun) do
+    Agent.get(get_room_id(room_name), get_fun)
+  end
+
+  defp update_room_state(room_name, update_fun) do
+    Agent.update(get_room_id(room_name), update_fun)
+  end
+
+
+  def get_opponent_player(player) do
+    case player do
+      "a" -> "b"
+      "b" -> "a"
     end
   end
 
+  defp get_opponent_pid(room_name, player) do
+    opponent = get_opponent_player(player)
+    get_room_state(room_name, fn %{^opponent => [pid, _word, _board]} -> pid end)
+  end
+
+  defp get_pid(room_name, player) do
+    get_room_state(room_name, fn %{^player => [pid, _word, _board]} -> pid end)
+  end
+
   def get_word(room_name, player) do
-    get_room_state(room_name, fn %{^player => [word, _board]} -> word end)
+    get_room_state(room_name, fn %{^player => [_pid, word, _board]} -> word end)
+  end
+
+  def get_board(room_name, player) do
+    get_room_state(room_name, fn %{^player => [_pid, _word, board]} -> Enum.reverse(board) end)
   end
 
   defp get_hidden_word(room_name) do
     get_room_state(room_name, fn %{:target => word} -> word end)
   end
 
-  def get_board(room_name, player) do
-    get_room_state(room_name, fn %{^player => [_word, board]} -> Enum.reverse(board) end)
-  end
-
   def get_winner(room_name) do
     get_room_state(room_name, fn %{:winner => winner} -> winner end)
+  end
+
+  def append_char(room_name, c, player) do
+    if String.length(get_word(room_name, player)) < 5 and get_winner(room_name) == nil do
+      update_room_state(
+        room_name,
+        fn map = %{^player => [pid, word, board]} -> %{map | player => [pid, word <> c, board]} end
+      )
+    end
   end
 
   def remove_char(room_name, player) do
@@ -57,8 +98,8 @@ defmodule Kwordle.Room do
     if len > 0 do
       update_room_state(
         room_name,
-        fn map = %{^player => [word, board]} ->
-          %{map | player => [String.slice(word, 0, len - 1), board]}
+        fn map = %{^player => [pid, word, board]} ->
+          %{map | player => [pid, String.slice(word, 0, len - 1), board]}
         end
       )
     end
@@ -72,25 +113,27 @@ defmodule Kwordle.Room do
       colors = check_word(hidden_word, word)
       update_room_state(
         room_name,
-        fn map = %{^player => [word, board]} ->
-          %{map | player => ["", [{word, colors} | board]], :winner => winning_player(colors, player)}
+        fn map = %{^player => [pid, word, board]} ->
+          %{map | player => [pid, "", [{word, colors} | board]]}
         end
       )
+
+      winner = Enum.all?(colors, fn color -> color == :right end)
+      if winner and get_winner(room_name) == nil do
+        opponent = get_opponent_player(player)
+        update_room_state(
+          room_name,
+          fn map = %{^opponent => [pid, _word, board]} ->
+            %{map | opponent => [pid, "", board], :winner => player}
+          end
+        )
+        send(get_pid(room_name, player), :game_finished)
+        send(get_opponent_pid(room_name, player), :game_finished)
+      end
+
+      send(get_opponent_pid(room_name, player), :check_opponent_board)
+      :submitted
     end
-  end
-
-  defp winning_player(colors, player) do
-    if Enum.all?(colors, fn color -> color == :right end) do
-      player
-    end
-  end
-
-  defp get_room_state(room_name, get_f) do
-    Agent.get(get_room_id(room_name), get_f)
-  end
-
-  defp update_room_state(room_name, update_f) do
-    Agent.update(get_room_id(room_name), update_f)
   end
 
   defp valid_word(word) do
