@@ -4,7 +4,7 @@ defmodule KwordleWeb.RoomLive do
   import KwordleWeb.Components.RoomComponents
 
   def mount(_params = %{"room" => room, "player" => player}, _session, socket) do
-    if !Room.exists(room) do
+    if not Room.exists(room) do
       Room.start_room(room)
     end
     #if connected?(socket) do
@@ -20,10 +20,13 @@ defmodule KwordleWeb.RoomLive do
       |> assign(:board, Room.get_board(room, player))
       |> assign(:opponent_board, Room.get_board(room, Room.get_opponent_player(player)))
       |> assign(:winner, Room.get_winner(room))
+      |> assign(:ready, Room.get_ready(room, player))
+      |> assign(:game_start, Room.get_game_start(room))
     }
   end
 
   def handle_info(:check_opponent_board, socket) do
+    # Change opponent's board
     %{assigns: %{room: room, player: player}} = socket
     opponent_board = Room.get_board(room, Room.get_opponent_player(player))
     {:noreply, socket
@@ -32,6 +35,7 @@ defmodule KwordleWeb.RoomLive do
   end
 
   def handle_info(:game_finished, socket) do
+    # Finish game
     %{assigns: %{room: room}} = socket
     {:noreply, socket
       |> assign(:cur_word, "")
@@ -39,7 +43,38 @@ defmodule KwordleWeb.RoomLive do
     }
   end
 
-  def handle_event("key_down", _params = %{"key" => "Enter"}, socket) do
+  def handle_info(:game_start, socket) do
+    # Start game
+    %{assigns: %{room: room}} = socket
+    {:noreply, socket
+      |> assign(:game_start, Room.get_game_start(room))
+    }
+  end
+
+  def handle_info(:reset, socket) do
+    # Reset
+    %{assigns: %{room: room, player: player}} = socket
+    {:noreply, socket
+      |> assign(:cur_word, Room.get_word(room, player))
+      |> assign(:board, Room.get_board(room, player))
+      |> assign(:opponent_board, Room.get_board(room, Room.get_opponent_player(player)))
+      |> assign(:winner, Room.get_winner(room))
+      |> assign(:ready, Room.get_ready(room, player))
+      |> assign(:game_start, Room.get_game_start(room))
+    }
+  end
+
+  def handle_event("key_down", _params = %{"key" => "Enter"}, socket)
+  when socket.assigns.winner != nil do
+    # Resetting to new game
+    %{assigns: %{room: room}} = socket
+    Room.reset(room)
+    {:noreply, socket}
+  end
+
+  def handle_event("key_down", _params = %{"key" => "Enter"}, socket)
+  when socket.assigns.ready do
+    # Submitting words
     %{assigns: %{room: room, player: player}} = socket
     Room.submit_word(room, player)
     {:noreply, socket
@@ -48,7 +83,17 @@ defmodule KwordleWeb.RoomLive do
     }
   end
 
+  def handle_event("key_down", _params = %{"key" => "Enter"}, socket) do
+    # Readying
+    %{assigns: %{room: room, player: player}} = socket
+    Room.ready(room, player)
+    {:noreply, socket
+      |> assign(:ready, Room.get_ready(room, player))
+    }
+  end
+
   def handle_event("key_down", _params = %{"key" => key}, socket) do
+    # Entering in characters
     %{assigns: %{room: room, player: player}} = socket
     cond do
       String.match?(key, ~r/^[a-zA-Z]$/) -> Room.append_char(room, key, player)

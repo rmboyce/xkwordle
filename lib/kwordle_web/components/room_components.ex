@@ -1,6 +1,22 @@
 defmodule KwordleWeb.Components.RoomComponents do
   use Phoenix.Component
 
+  def ready(assigns) do
+    ~H"""
+    <%= if not @game_start do %>
+      <p><%= ready_text(@ready) %></p>
+    <% end %>
+    """
+  end
+
+  defp ready_text(ready) do
+    if ready do
+      "Ready!"
+    else
+      "Not ready! Press enter to ready"
+    end
+  end
+
   def show_board(assigns) do
     ~H"""
     <%= for {word, colors} <- @board do %>

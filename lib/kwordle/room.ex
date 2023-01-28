@@ -17,8 +17,9 @@ defmodule Kwordle.Room do
         [
           fn ->
             %{
-              "a" => [nil, "", []],
-              "b" => [nil, "", []],
+              "a" => [false, nil, "", []],
+              "b" => [false, nil, "", []],
+              :game_start => false,
               :target => get_random_word(),
               :winner => nil
             }
@@ -34,7 +35,7 @@ defmodule Kwordle.Room do
   def join_room(room_name, player, pid) do
     update_room_state(
       room_name,
-      fn map = %{^player => [_, word, board]} -> %{map | player => [pid, word, board]} end
+      fn map = %{^player => [false, _, word, board]} -> %{map | player => [false, pid, word, board]} end
     )
   end
 
@@ -59,21 +60,27 @@ defmodule Kwordle.Room do
     end
   end
 
-  defp get_opponent_pid(room_name, player) do
-    opponent = get_opponent_player(player)
-    get_room_state(room_name, fn %{^opponent => [pid, _word, _board]} -> pid end)
+  defp get_pid(room_name, player) do
+    get_room_state(room_name, fn %{^player => [_ready, pid, _word, _board]} -> pid end)
   end
 
-  defp get_pid(room_name, player) do
-    get_room_state(room_name, fn %{^player => [pid, _word, _board]} -> pid end)
+  defp send_all(room_name, message) do
+    send(get_pid(room_name, "a"), message)
+    send(get_pid(room_name, "b"), message)
+  end
+
+  defp send_opponent(room_name, player, message) do
+    opponent = get_opponent_player(player)
+    opponent_pid = get_room_state(room_name, fn %{^opponent => [_ready, pid, _word, _board]} -> pid end)
+    send(opponent_pid, message)
   end
 
   def get_word(room_name, player) do
-    get_room_state(room_name, fn %{^player => [_pid, word, _board]} -> word end)
+    get_room_state(room_name, fn %{^player => [_ready, _pid, word, _board]} -> word end)
   end
 
   def get_board(room_name, player) do
-    get_room_state(room_name, fn %{^player => [_pid, _word, board]} -> Enum.reverse(board) end)
+    get_room_state(room_name, fn %{^player => [_ready, _pid, _word, board]} -> Enum.reverse(board) end)
   end
 
   defp get_hidden_word(room_name) do
@@ -84,11 +91,56 @@ defmodule Kwordle.Room do
     get_room_state(room_name, fn %{:winner => winner} -> winner end)
   end
 
+  def get_ready(room_name, player) do
+    get_room_state(room_name, fn %{^player => [ready, _pid, _word, _board]} -> ready end)
+  end
+
+  def ready(room_name, player) do
+    update_room_state(
+      room_name,
+      fn map = %{^player => [_ready, pid, word, board]} ->
+        %{map | player => [true, pid, word, board]}
+      end
+    )
+    if get_ready(room_name, get_opponent_player(player)) do
+      update_room_state(
+        room_name,
+        fn map = %{:game_start => false} ->
+          %{map | :game_start => true}
+        end
+      )
+      send_all(room_name, :game_start)
+    end
+  end
+
+  def get_game_start(room_name) do
+    get_room_state(room_name, fn %{:game_start => game_start} -> game_start end)
+  end
+
+  def reset(room_name) do
+    update_room_state(
+      room_name,
+      fn map = %{"a" => [_, pid_a, _, _], "b" => [_, pid_b, _, _]} ->
+        %{
+          map |
+          "a" => [false, pid_a, "", []],
+          "b" => [false, pid_b, "", []],
+          :game_start => false,
+          :target => get_random_word(),
+          :winner => nil
+        }
+      end
+    )
+    send_all(room_name, :reset)
+  end
+
   def append_char(room_name, c, player) do
     if String.length(get_word(room_name, player)) < 5 and get_winner(room_name) == nil do
       update_room_state(
         room_name,
-        fn map = %{^player => [pid, word, board]} -> %{map | player => [pid, word <> c, board]} end
+        fn map = %{^player => [true, pid, word, board]} ->
+          %{map | player => [true, pid, word <> c, board]}
+        end
       )
     end
   end
@@ -98,8 +150,8 @@ defmodule Kwordle.Room do
     if len > 0 do
       update_room_state(
         room_name,
-        fn map = %{^player => [pid, word, board]} ->
-          %{map | player => [pid, String.slice(word, 0, len - 1), board]}
+        fn map = %{^player => [true, pid, word, board]} ->
+          %{map | player => [true, pid, String.slice(word, 0, len - 1), board]}
         end
       )
     end
@@ -107,14 +159,12 @@ defmodule Kwordle.Room do
 
   def submit_word(room_name, player) do
     word = get_word(room_name, player)
-    board = get_board(room_name, player)
-    hidden_word = get_hidden_word(room_name)
-    if length(board) < 6 and valid_word(word) do
-      colors = check_word(hidden_word, word)
+    if length(get_board(room_name, player)) < 6 and valid_word(word) do
+      colors = check_word(get_hidden_word(room_name), word)
       update_room_state(
         room_name,
-        fn map = %{^player => [pid, word, board]} ->
-          %{map | player => [pid, "", [{word, colors} | board]]}
+        fn map = %{^player => [true, pid, word, board]} ->
+          %{map | player => [true, pid, "", [{word, colors} | board]]}
         end
       )
 
@@ -123,15 +173,14 @@ defmodule Kwordle.Room do
         opponent = get_opponent_player(player)
         update_room_state(
           room_name,
-          fn map = %{^opponent => [pid, _word, board]} ->
-            %{map | opponent => [pid, "", board], :winner => player}
+          fn map = %{^opponent => [true, pid, _word, board]} ->
+            %{map | opponent => [true, pid, "", board], :winner => player}
           end
         )
-        send(get_pid(room_name, player), :game_finished)
-        send(get_opponent_pid(room_name, player), :game_finished)
+        send_all(room_name, :game_finished)
       end
 
-      send(get_opponent_pid(room_name, player), :check_opponent_board)
+      send_opponent(room_name, player, :check_opponent_board)
       :submitted
     end
   end

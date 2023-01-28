@@ -1,18 +1,25 @@
 <div phx-window-keydown="key_down">
   <p>Current room: <%= @room %></p>
   <p>Player: <%= @player %></p>
+
+  <.ready ready={@ready} game_start={@game_start} />
+
   <%= if @winner do %>
     <h2 class="flex justify-center">Winner: <%= @winner %></h2>
+    <p>Press enter to start a new game!</p>
   <% end %>
-  <h2>Words</h2>
-  <div class="flex">
-    <div class="flex justify-center items-center grow gap-10 overflow-hidden">
-      <div class="basis-3/5 grid grid-rows-6 gap-5 box-border">
-        <.show_board board={@board} cur_word={@cur_word} />
-      </div>
-      <div class="basis-2/5 grid grid-rows-6 gap-5 box-border">
-        <.show_opponent_board opponent_board={@opponent_board} />
+
+  <%= if @game_start do %>
+    <h2>Words</h2>
+    <div class="flex">
+      <div class="flex justify-center items-center grow gap-10 overflow-hidden">
+        <div class="basis-3/5 grid grid-rows-6 gap-5 box-border">
+          <.show_board board={@board} cur_word={@cur_word} />
+        </div>
+        <div class="basis-2/5 grid grid-rows-6 gap-5 box-border">
+          <.show_opponent_board opponent_board={@opponent_board} />
+        </div>
       </div>
     </div>
-  </div>
+  <% end %>
 </div>
