@@ -21,6 +21,7 @@ defmodule KwordleWeb.RoomLive do
       |> assign(:opponent_board, Room.get_board(room, Room.get_opponent_player(player)))
       |> assign(:winner, Room.get_winner(room))
       |> assign(:ready, Room.get_ready(room, player))
+      |> assign(:opponent_ready, Room.get_ready(room, Room.get_opponent_player(player)))
       |> assign(:game_start, Room.get_game_start(room))
     }
   end
@@ -31,6 +32,14 @@ defmodule KwordleWeb.RoomLive do
     opponent_board = Room.get_board(room, Room.get_opponent_player(player))
     {:noreply, socket
       |> assign(:opponent_board, opponent_board)
+    }
+  end
+
+  def handle_info(:check_opponent_ready, socket) do
+    # Change opponent's ready state
+    %{assigns: %{room: room, player: player}} = socket
+    {:noreply, socket
+      |> assign(:opponent_ready, Room.get_ready(room, Room.get_opponent_player(player)))
     }
   end
 
@@ -60,6 +69,7 @@ defmodule KwordleWeb.RoomLive do
       |> assign(:opponent_board, Room.get_board(room, Room.get_opponent_player(player)))
       |> assign(:winner, Room.get_winner(room))
       |> assign(:ready, Room.get_ready(room, player))
+      |> assign(:opponent_ready, Room.get_ready(room, Room.get_opponent_player(player)))
       |> assign(:game_start, Room.get_game_start(room))
     }
   end

@@ -17,8 +17,8 @@ defmodule Kwordle.Room do
         [
           fn ->
             %{
-              "a" => [false, nil, "", []],
-              "b" => [false, nil, "", []],
+              "a" => generate_initial_state(nil),
+              "b" => generate_initial_state(nil),
               :game_start => false,
               :target => get_random_word(),
               :winner => nil
@@ -39,6 +39,10 @@ defmodule Kwordle.Room do
     )
   end
 
+
+  defp generate_initial_state(pid) do
+    [false, pid, "", []]
+  end
 
   defp get_room_id(room_name) do
     {:via, Registry, {Kwordle.RoomRegistry, room_name}}
@@ -102,6 +106,7 @@ defmodule Kwordle.Room do
         %{map | player => [true, pid, word, board]}
       end
     )
+    send_opponent(room_name, player, :check_opponent_ready)
     if get_ready(room_name, get_opponent_player(player)) do
       update_room_state(
         room_name,
@@ -123,8 +128,8 @@ defmodule Kwordle.Room do
       fn map = %{"a" => [_, pid_a, _, _], "b" => [_, pid_b, _, _]} ->
         %{
           map |
-          "a" => [false, pid_a, "", []],
-          "b" => [false, pid_b, "", []],
+          "a" => generate_initial_state(pid_a),
+          "b" => generate_initial_state(pid_b),
           :game_start => false,
           :target => get_random_word(),
           :winner => nil

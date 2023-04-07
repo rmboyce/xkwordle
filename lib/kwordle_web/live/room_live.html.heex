@@ -2,7 +2,7 @@
   <p>Current room: <%= @room %></p>
   <p>Player: <%= @player %></p>
 
-  <.ready ready={@ready} game_start={@game_start} />
+  <.ready ready={@ready} opponent_ready={@opponent_ready} game_start={@game_start} />
 
   <%= if @winner do %>
     <h2 class="flex justify-center">Winner: <%= @winner %></h2>

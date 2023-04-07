@@ -5,6 +5,7 @@ defmodule KwordleWeb.Components.RoomComponents do
     ~H"""
     <%= if not @game_start do %>
       <p><%= ready_text(@ready) %></p>
+      <p><%= opponent_ready_text(@opponent_ready) %></p>
     <% end %>
     """
   end
@@ -14,6 +15,14 @@ defmodule KwordleWeb.Components.RoomComponents do
       "Ready!"
     else
       "Not ready! Press enter to ready"
+    end
+  end
+
+  defp opponent_ready_text(opponent_ready) do
+    if opponent_ready do
+      "Opponent ready!"
+    else
+      "Opponent not ready!"
     end
   end
 
