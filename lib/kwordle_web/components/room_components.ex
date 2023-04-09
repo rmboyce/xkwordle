@@ -26,6 +26,7 @@ defmodule KwordleWeb.Components.RoomComponents do
     end
   end
 
+
   def show_board(assigns) do
     ~H"""
     <%= for {word, colors} <- @board do %>
@@ -42,12 +43,12 @@ defmodule KwordleWeb.Components.RoomComponents do
 
   def show_opponent_board(assigns) do
     ~H"""
-      <%= for {_word, colors} <- @opponent_board do %>
-        <.show_word word={""} colors={colors} />
-      <% end %>
-      <%= for _ <- rest_of_board(length(@opponent_board)) do %>
-        <.show_word_blank word={""} />
-      <% end %>
+    <%= for {_word, colors} <- @opponent_board do %>
+      <.show_word word={""} colors={colors} />
+    <% end %>
+    <%= for _ <- rest_of_board(length(@opponent_board)) do %>
+      <.show_word_blank word={""} />
+    <% end %>
     """
   end
 
@@ -80,6 +81,7 @@ defmodule KwordleWeb.Components.RoomComponents do
       :right -> "bg-green-200"
     end
   end
+
 
   defp format_word(word, colors) do
     Enum.zip(String.graphemes(pad_word(word)), colors)

@@ -3,14 +3,19 @@ defmodule KwordleWeb.RoomLive do
   alias Kwordle.Room, as: Room
   import KwordleWeb.Components.RoomComponents
 
-  def mount(_params = %{"room" => room, "player" => player}, _session, socket) do
+  def mount(_params = %{"room" => room, "player" => player, "code" => code}, _session, socket) do
+    # TODO: replace with redirect
     if not Room.exists(room) do
-      Room.start_room(room)
+      Room.start_room(room, code)
     end
     #if connected?(socket) do
     #  Process.send_after(self(), :check_players, 1000)
     #end
-    Room.join_room(room, player, self())
+    if Room.join_room(room, player, self(), code) == :wrong_code do
+      {:ok, socket
+        |> redirect(to: "/")
+      }
+    end
 
     #IO.inspect(self())
     {:ok, socket
@@ -25,6 +30,7 @@ defmodule KwordleWeb.RoomLive do
       |> assign(:game_start, Room.get_game_start(room))
     }
   end
+
 
   def handle_info(:check_opponent_board, socket) do
     # Change opponent's board
@@ -73,6 +79,7 @@ defmodule KwordleWeb.RoomLive do
       |> assign(:game_start, Room.get_game_start(room))
     }
   end
+
 
   def handle_event("key_down", _params = %{"key" => "Enter"}, socket)
   when socket.assigns.winner != nil do

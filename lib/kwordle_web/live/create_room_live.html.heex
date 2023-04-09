@@ -1,0 +1,18 @@
+<form phx-change="validate" phx-submit="create-room">
+  <label for="room">Room name</label>
+  <input type="text" name="room" value={@room} />
+  <%= if @room_error do %>
+    <p class="text-red-500">Room name must consist of 1+ letters!</p>
+  <% end %>
+  <%= if @room_full do %>
+    <p class="text-red-500">Room name is taken!</p>
+  <% end %>
+
+  <label for="code">Code</label>
+  <input type="text" name="code" value={@code} />
+  <%= if @code_error do %>
+    <p class="text-red-500">Code must be at least 4 characters long!</p>
+  <% end %>
+
+  <button>Create Room</button>
+</form>

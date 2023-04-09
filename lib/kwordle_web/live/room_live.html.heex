@@ -1,6 +1,6 @@
 <div phx-window-keydown="key_down">
-  <p>Current room: <%= @room %></p>
-  <p>Player: <%= @player %></p>
+  <p>In room <%= @room %></p>
+  <p>(DEV) Player: <%= @player %></p>
 
   <.ready ready={@ready} opponent_ready={@opponent_ready} game_start={@game_start} />
 

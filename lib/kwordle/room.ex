@@ -1,13 +1,13 @@
 defmodule Kwordle.Room do
   @moduledoc """
-  Context describing a room that each game of kwordle takes place in.
+  Context describing a room that each game of xkwordle takes place in.
   """
 
   def exists(room_name) do
     Registry.lookup(Kwordle.RoomRegistry, room_name) != []
   end
 
-  def start_room(room_name) do
+  def start_room(room_name, code) do
     #child = Supervisor.child_spec({Agent, fn -> [] end}, name: name)
     child = %{
       id: Agent,
@@ -21,7 +21,8 @@ defmodule Kwordle.Room do
               "b" => generate_initial_state(nil),
               :game_start => false,
               :target => get_random_word(),
-              :winner => nil
+              :winner => nil,
+              :code => code
             }
           end,
           [name: get_room_id(room_name)]
@@ -32,11 +33,23 @@ defmodule Kwordle.Room do
     IO.puts(get_hidden_word(room_name))
   end
 
-  def join_room(room_name, player, pid) do
-    update_room_state(
-      room_name,
-      fn map = %{^player => [false, _, word, board]} -> %{map | player => [false, pid, word, board]} end
-    )
+  def join_room(room_name, player, pid, code) do
+    if String.equivalent?(code, get_code(room_name)) do
+      update_room_state(
+        room_name,
+        fn map = %{^player => [false, _, word, board]} -> %{map | player => [false, pid, word, board]} end
+      )
+    else
+      :wrong_code
+    end
+  end
+
+  def is_full(room_name) do
+    if exists(room_name) do
+      get_pid(room_name, "a") != nil and get_pid(room_name, "b") != nil
+    else
+      false
+    end
   end
 
 
@@ -77,6 +90,10 @@ defmodule Kwordle.Room do
     opponent = get_opponent_player(player)
     opponent_pid = get_room_state(room_name, fn %{^opponent => [_ready, pid, _word, _board]} -> pid end)
     send(opponent_pid, message)
+  end
+
+  defp get_code(room_name) do
+    get_room_state(room_name, fn %{:code => code} -> code end)
   end
 
   def get_word(room_name, player) do
