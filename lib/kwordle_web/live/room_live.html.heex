@@ -1,12 +1,8 @@
 <div phx-window-keydown="key_down">
-  <p>In room <%= @room %></p>
   <p>(DEV) Player: <%= @player %></p>
 
-  <.ready ready={@ready} opponent_ready={@opponent_ready} game_start={@game_start} />
-
   <%= if @winner do %>
-    <h2 class="flex justify-center">Winner: <%= @winner %></h2>
-    <p>Press enter to start a new game!</p>
+    <.end_screen player={@player} winner={@winner} />
   <% end %>
 
   <%= if @game_start do %>
@@ -21,5 +17,7 @@
         </div>
       </div>
     </div>
+  <% else %>
+    <.lobby room={@room} ready={@ready} opponent_ready={@opponent_ready} game_start={@game_start} />
   <% end %>
 </div>

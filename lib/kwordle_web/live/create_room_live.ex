@@ -6,6 +6,7 @@ defmodule KwordleWeb.CreateRoomLive do
     {:ok, socket
       |> assign(room: "")
       |> assign(code: "")
+      |> assign(join_room: false)
       |> assign(room_error: true)
       |> assign(room_full: false)
       |> assign(code_error: true)
@@ -17,9 +18,10 @@ defmodule KwordleWeb.CreateRoomLive do
     {:noreply, socket
       |> assign(room: room)
       |> assign(code: code)
+      |> assign(join_room: Room.has_player_a(room))
       |> assign(room_error: not String.match?(room, ~r/^[a-zA-Z]+$/))
       |> assign(room_full: Room.is_full(room))
-      |> assign(code_error: String.length(code) < 4)
+      |> assign(code_error: String.length(code) < 4 or not String.match?(code, ~r/^[a-zA-Z0-9]+$/))
     }
   end
 
@@ -28,16 +30,13 @@ defmodule KwordleWeb.CreateRoomLive do
     if not room_error and not room_full and not code_error do
       if not Room.exists(room) do
         Room.start_room(room, code)
-        room_link = "/room/" <> room <> "/a?code=" <> code
-        {:noreply, socket
-          |> redirect(to: room_link)
-        }
-      else
-        room_link = "/room/" <> room <> "/b?code=" <> code
-        {:noreply, socket
-          |> redirect(to: room_link)
-        }
       end
+      room_link = "/room/" <> room <> "?code=" <> code
+      {:noreply, socket
+        |> redirect(to: room_link)
+      }
+    else
+      {:noreply, socket}
     end
   end
 end

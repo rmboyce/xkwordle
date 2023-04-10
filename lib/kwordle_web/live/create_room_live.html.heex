@@ -5,7 +5,7 @@
     <p class="text-red-500">Room name must consist of 1+ letters!</p>
   <% end %>
   <%= if @room_full do %>
-    <p class="text-red-500">Room name is taken!</p>
+    <p class="text-red-500">Room is full!</p>
   <% end %>
 
   <label for="code">Code</label>
@@ -14,5 +14,11 @@
     <p class="text-red-500">Code must be at least 4 characters long!</p>
   <% end %>
 
-  <button>Create Room</button>
+  <button>
+    <%= if @join_room do %>
+      Join room
+    <% else %>
+      Create room
+    <% end %>
+  </button>
 </form>

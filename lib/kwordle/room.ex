@@ -3,10 +3,28 @@ defmodule Kwordle.Room do
   Context describing a room that each game of xkwordle takes place in.
   """
 
+  @spec exists(room_name :: binary) :: boolean
+  @doc """
+  Check if a room exists.
+  """
   def exists(room_name) do
     Registry.lookup(Kwordle.RoomRegistry, room_name) != []
   end
 
+  @spec start_room(room_name :: binary, code :: binary) :: {:ok, pid}
+  @doc """
+  Start a room. The room data is stored in a map
+  ```
+  %{
+    "a" => [ready, pid, current word, board],
+    "b" => [ready, pid, current word, board],
+    :game_start => boolean,
+    :target => target word,
+    :winner => nil | winning player
+    :code => room code
+  }
+  ```
+  """
   def start_room(room_name, code) do
     #child = Supervisor.child_spec({Agent, fn -> [] end}, name: name)
     child = %{
@@ -30,20 +48,48 @@ defmodule Kwordle.Room do
       }
     }
     {:ok, _agent} = DynamicSupervisor.start_child(Kwordle.RoomSupervisor, child)
-    IO.puts(get_hidden_word(room_name))
   end
 
+  @spec join_room(room_name :: binary, player :: binary, pid :: pid, code :: binary) :: :ok | :wrong_code
+  @doc """
+  Join a room. Returns `:ok` on success and `:wrong_code` if the code is incorrect.
+  """
   def join_room(room_name, player, pid, code) do
-    if String.equivalent?(code, get_code(room_name)) do
+    if correct_code(room_name, code) do
       update_room_state(
         room_name,
         fn map = %{^player => [false, _, word, board]} -> %{map | player => [false, pid, word, board]} end
       )
     else
+      # This should never trigger but may as well output something
       :wrong_code
     end
   end
 
+  @spec correct_code(room_name :: binary, code :: binary) :: boolean
+  @doc """
+  Check if the code for the room is correct.
+  """
+  def correct_code(room_name, code) do
+    String.equivalent?(code, get_code(room_name))
+  end
+
+  @spec has_player_a(binary) :: boolean
+  @doc """
+  Check if the room already has one player in it.
+  """
+  def has_player_a(room_name) do
+    if exists(room_name) do
+      get_pid(room_name, "a") != nil
+    else
+      false
+    end
+  end
+
+  @spec is_full(binary) :: boolean
+  @doc """
+  Check if the room is full (i.e. it has two players in it).
+  """
   def is_full(room_name) do
     if exists(room_name) do
       get_pid(room_name, "a") != nil and get_pid(room_name, "b") != nil
@@ -70,6 +116,39 @@ defmodule Kwordle.Room do
   end
 
 
+  defp get_pid(room_name, player) do
+    get_room_state(room_name, fn %{^player => [_ready, pid, _word, _board]} -> pid end)
+  end
+
+  defp get_code(room_name) do
+    get_room_state(room_name, fn %{:code => code} -> code end)
+  end
+
+  defp get_hidden_word(room_name) do
+    get_room_state(room_name, fn %{:target => word} -> word end)
+  end
+
+  @spec get_word(room_name :: binary, player :: binary) :: binary
+  @doc """
+  Get the current word the player is typing.
+  """
+  def get_word(room_name, player) do
+    get_room_state(room_name, fn %{^player => [_ready, _pid, word, _board]} -> word end)
+  end
+
+  @spec get_board(room_name :: binary, player :: binary) :: list(tuple)
+  @doc """
+  Get the player's board.
+  The board consists of a list of tuples constructed in the manner `{word, colors}`.
+  """
+  def get_board(room_name, player) do
+    get_room_state(room_name, fn %{^player => [_ready, _pid, _word, board]} -> Enum.reverse(board) end)
+  end
+
+  @spec get_opponent_player(player :: binary) :: binary
+  @doc """
+  Get the opposing player.
+  """
   def get_opponent_player(player) do
     case player do
       "a" -> "b"
@@ -77,9 +156,32 @@ defmodule Kwordle.Room do
     end
   end
 
-  defp get_pid(room_name, player) do
-    get_room_state(room_name, fn %{^player => [_ready, pid, _word, _board]} -> pid end)
+  @spec get_winner(room_name :: binary) :: nil | binary
+  @doc """
+  Get the winner.
+  It is `nil` if the game hasn't finished yet, `"a"` or `"b"` if a player won,
+  and `"nobody"` if a stalemate occurred.
+  """
+  def get_winner(room_name) do
+    get_room_state(room_name, fn %{:winner => winner} -> winner end)
   end
+
+  @spec get_ready(room_name :: binary, player :: binary) :: boolean
+  @doc """
+  Get whether or not the player is ready.
+  """
+  def get_ready(room_name, player) do
+    get_room_state(room_name, fn %{^player => [ready, _pid, _word, _board]} -> ready end)
+  end
+
+  @spec get_game_start(room_name :: binary) :: boolean
+  @doc """
+  Get whether or not the game has started.
+  """
+  def get_game_start(room_name) do
+    get_room_state(room_name, fn %{:game_start => game_start} -> game_start end)
+  end
+
 
   defp send_all(room_name, message) do
     send(get_pid(room_name, "a"), message)
@@ -87,35 +189,14 @@ defmodule Kwordle.Room do
   end
 
   defp send_opponent(room_name, player, message) do
-    opponent = get_opponent_player(player)
-    opponent_pid = get_room_state(room_name, fn %{^opponent => [_ready, pid, _word, _board]} -> pid end)
+    opponent_pid = get_pid(room_name, get_opponent_player(player))
     send(opponent_pid, message)
   end
 
-  defp get_code(room_name) do
-    get_room_state(room_name, fn %{:code => code} -> code end)
-  end
-
-  def get_word(room_name, player) do
-    get_room_state(room_name, fn %{^player => [_ready, _pid, word, _board]} -> word end)
-  end
-
-  def get_board(room_name, player) do
-    get_room_state(room_name, fn %{^player => [_ready, _pid, _word, board]} -> Enum.reverse(board) end)
-  end
-
-  defp get_hidden_word(room_name) do
-    get_room_state(room_name, fn %{:target => word} -> word end)
-  end
-
-  def get_winner(room_name) do
-    get_room_state(room_name, fn %{:winner => winner} -> winner end)
-  end
-
-  def get_ready(room_name, player) do
-    get_room_state(room_name, fn %{^player => [ready, _pid, _word, _board]} -> ready end)
-  end
-
+  @spec ready(room_name :: binary, player :: binary) :: :ok
+  @doc """
+  Ready up to start the game. If the first player was ready then start the game.
+  """
   def ready(room_name, player) do
     update_room_state(
       room_name,
@@ -123,7 +204,9 @@ defmodule Kwordle.Room do
         %{map | player => [true, pid, word, board]}
       end
     )
+    # Tell opponent we're ready
     send_opponent(room_name, player, :check_opponent_ready)
+    # If the opponent was ready start the game
     if get_ready(room_name, get_opponent_player(player)) do
       update_room_state(
         room_name,
@@ -133,12 +216,13 @@ defmodule Kwordle.Room do
       )
       send_all(room_name, :game_start)
     end
+    :ok
   end
 
-  def get_game_start(room_name) do
-    get_room_state(room_name, fn %{:game_start => game_start} -> game_start end)
-  end
-
+  @spec reset(room_name :: binary) :: :ok
+  @doc """
+  Reset the room state.
+  """
   def reset(room_name) do
     update_room_state(
       room_name,
@@ -153,9 +237,13 @@ defmodule Kwordle.Room do
         }
       end
     )
-    send_all(room_name, :reset)
   end
 
+  @spec append_char(room_name :: binary, c :: binary, player :: binary) :: :failed | :ok
+  @doc """
+  Append the character c to the player's current word if possible.
+  Returns `:ok` on success, else `:failed`.
+  """
   def append_char(room_name, c, player) do
     if String.length(get_word(room_name, player)) < 5 and get_winner(room_name) == nil do
       update_room_state(
@@ -164,9 +252,16 @@ defmodule Kwordle.Room do
           %{map | player => [true, pid, word <> c, board]}
         end
       )
+    else
+      :failed
     end
   end
 
+  @spec remove_char(room_name :: binary, player :: binary) :: :failed | :ok
+  @doc """
+  Remove a character from the player's current word if possible.
+  Returns `:ok` on success, else `:failed`.
+  """
   def remove_char(room_name, player) do
     len = String.length(get_word(room_name, player))
     if len > 0 do
@@ -176,12 +271,21 @@ defmodule Kwordle.Room do
           %{map | player => [true, pid, String.slice(word, 0, len - 1), board]}
         end
       )
+    else
+      :failed
     end
   end
 
+  @spec submit_word(room_name :: binary, player :: binary) :: :failed | :ok
+  @doc """
+  Submit the current word if possible.
+  Returns `:ok` on success, else `:failed`.
+  """
   def submit_word(room_name, player) do
+    IO.puts(get_hidden_word(room_name))
     word = get_word(room_name, player)
-    if length(get_board(room_name, player)) < 6 and valid_word(word) do
+    if length(get_board(room_name, player)) < 6 and String.length(word) == 5 and valid_word(word) do
+      # Add word to board
       colors = check_word(get_hidden_word(room_name), word)
       update_room_state(
         room_name,
@@ -190,6 +294,7 @@ defmodule Kwordle.Room do
         end
       )
 
+      # Check for winner
       winner = Enum.all?(colors, fn color -> color == :right end)
       if winner and get_winner(room_name) == nil do
         opponent = get_opponent_player(player)
@@ -202,8 +307,24 @@ defmodule Kwordle.Room do
         send_all(room_name, :game_finished)
       end
 
+      # Check if stalemate
+      if not winner and
+      length(get_board(room_name, player)) == 6 and
+      length(get_board(room_name, get_opponent_player(player))) == 6 do
+        update_room_state(
+          room_name,
+          fn map ->
+            %{map | :winner => "nobody"}
+          end
+        )
+        send_all(room_name, :game_finished)
+      end
+
+      # Update opponent's board
       send_opponent(room_name, player, :check_opponent_board)
-      :submitted
+      :ok
+    else
+      :failed
     end
   end
 

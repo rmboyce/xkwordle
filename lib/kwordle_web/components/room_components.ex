@@ -1,12 +1,11 @@
 defmodule KwordleWeb.Components.RoomComponents do
   use Phoenix.Component
 
-  def ready(assigns) do
+  def lobby(assigns) do
     ~H"""
-    <%= if not @game_start do %>
-      <p><%= ready_text(@ready) %></p>
-      <p><%= opponent_ready_text(@opponent_ready) %></p>
-    <% end %>
+    <p>In room <%= @room %></p>
+    <p><%= ready_text(@ready) %></p>
+    <p><%= opponent_ready_text(@opponent_ready) %></p>
     """
   end
 
@@ -23,6 +22,22 @@ defmodule KwordleWeb.Components.RoomComponents do
       "Opponent ready!"
     else
       "Opponent not ready!"
+    end
+  end
+
+
+  def end_screen(assigns) do
+    ~H"""
+    <h2 class="flex justify-center"><%= end_screen_text(@player, @winner) %></h2>
+    <p>Press enter to return to the room lobby!</p>
+    """
+  end
+
+  defp end_screen_text(player, winner) do
+    if String.equivalent?(player, winner) do
+      "You won!"
+    else
+      "You lost..."
     end
   end
 

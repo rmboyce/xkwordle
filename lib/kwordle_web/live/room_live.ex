@@ -3,32 +3,34 @@ defmodule KwordleWeb.RoomLive do
   alias Kwordle.Room, as: Room
   import KwordleWeb.Components.RoomComponents
 
-  def mount(_params = %{"room" => room, "player" => player, "code" => code}, _session, socket) do
-    # TODO: replace with redirect
-    if not Room.exists(room) do
-      Room.start_room(room, code)
+  def mount(_params = %{"room" => room, "code" => code}, _session, socket) do
+    # Choose player based on whether or not room has player a
+    player = if Room.has_player_a(room) do
+      "b"
+    else
+      "a"
     end
-    #if connected?(socket) do
-    #  Process.send_after(self(), :check_players, 1000)
-    #end
-    if Room.join_room(room, player, self(), code) == :wrong_code do
+
+    if not Room.correct_code(room, code) or
+    connected?(socket) and Room.join_room(room, player, self(), code) == :wrong_code do
+      # Wrong code, redirect to index
       {:ok, socket
         |> redirect(to: "/")
       }
+    else
+      # Show room
+      {:ok, socket
+        |> assign(:room, room)
+        |> assign(:player, player)
+        |> assign(:cur_word, Room.get_word(room, player))
+        |> assign(:board, Room.get_board(room, player))
+        |> assign(:opponent_board, Room.get_board(room, Room.get_opponent_player(player)))
+        |> assign(:winner, Room.get_winner(room))
+        |> assign(:ready, Room.get_ready(room, player))
+        |> assign(:opponent_ready, Room.get_ready(room, Room.get_opponent_player(player)))
+        |> assign(:game_start, Room.get_game_start(room))
+      }
     end
-
-    #IO.inspect(self())
-    {:ok, socket
-      |> assign(:room, room)
-      |> assign(:player, player)
-      |> assign(:cur_word, Room.get_word(room, player))
-      |> assign(:board, Room.get_board(room, player))
-      |> assign(:opponent_board, Room.get_board(room, Room.get_opponent_player(player)))
-      |> assign(:winner, Room.get_winner(room))
-      |> assign(:ready, Room.get_ready(room, player))
-      |> assign(:opponent_ready, Room.get_ready(room, Room.get_opponent_player(player)))
-      |> assign(:game_start, Room.get_game_start(room))
-    }
   end
 
 
@@ -66,9 +68,12 @@ defmodule KwordleWeb.RoomLive do
     }
   end
 
-  def handle_info(:reset, socket) do
-    # Reset
+
+  def handle_event("key_down", _params = %{"key" => "Enter"}, socket)
+  when socket.assigns.winner != nil do
+    # Resetting to new game
     %{assigns: %{room: room, player: player}} = socket
+    Room.reset(room)
     {:noreply, socket
       |> assign(:cur_word, Room.get_word(room, player))
       |> assign(:board, Room.get_board(room, player))
@@ -78,15 +83,6 @@ defmodule KwordleWeb.RoomLive do
       |> assign(:opponent_ready, Room.get_ready(room, Room.get_opponent_player(player)))
       |> assign(:game_start, Room.get_game_start(room))
     }
-  end
-
-
-  def handle_event("key_down", _params = %{"key" => "Enter"}, socket)
-  when socket.assigns.winner != nil do
-    # Resetting to new game
-    %{assigns: %{room: room}} = socket
-    Room.reset(room)
-    {:noreply, socket}
   end
 
   def handle_event("key_down", _params = %{"key" => "Enter"}, socket)
