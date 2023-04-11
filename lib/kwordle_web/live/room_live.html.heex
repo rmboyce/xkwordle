@@ -1,23 +1,25 @@
-<div phx-window-keydown="key_down">
-  <p>(DEV) Player: <%= @player %></p>
+<div class="w-full flex flex-col items-center">
+  <div phx-window-keydown="key_down"
+  class="flex flex-col w-1/2">
+    <%= if @winner != nil and @sees_board do %>
+      <.end_screen player={@player} winner={@winner} />
+    <% end %>
 
-  <%= if @winner do %>
-    <.end_screen player={@player} winner={@winner} />
-  <% end %>
-
-  <%= if @game_start do %>
-    <h2>Words</h2>
-    <div class="flex">
-      <div class="flex justify-center items-center grow gap-10 overflow-hidden">
-        <div class="basis-3/5 grid grid-rows-6 gap-5 box-border">
-          <.show_board board={@board} cur_word={@cur_word} />
-        </div>
-        <div class="basis-2/5 grid grid-rows-6 gap-5 box-border">
-          <.show_opponent_board opponent_board={@opponent_board} />
+    <%= if @sees_board do %>
+      <p class="text-2xl font-medium self-center mb-4">Words</p>
+      <div class="flex">
+        <div class="flex justify-center items-center grow gap-10 overflow-hidden">
+          <div class="basis-3/5 grid grid-rows-6 gap-4 box-border">
+            <.show_board board={@board} cur_word={@cur_word} />
+          </div>
+          <div class="basis-2/5 grid grid-rows-6 gap-4 box-border">
+            <.show_opponent_board opponent_board={@opponent_board} />
+          </div>
         </div>
       </div>
-    </div>
-  <% else %>
-    <.lobby room={@room} ready={@ready} opponent_ready={@opponent_ready} game_start={@game_start} />
-  <% end %>
+    <% else %>
+      <.lobby room={@room} ready={@ready} opponent_ready={@opponent_ready} />
+    <% end %>
+    <p>(DEV) Player: <%= @player %></p>
+  </div>
 </div>

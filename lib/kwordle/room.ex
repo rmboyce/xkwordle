@@ -16,9 +16,8 @@ defmodule Kwordle.Room do
   Start a room. The room data is stored in a map
   ```
   %{
-    "a" => [ready, pid, current word, board],
-    "b" => [ready, pid, current word, board],
-    :game_start => boolean,
+    "a" => [ready, sees board, pid, current word, board],
+    "b" => [ready, sees board, pid, current word, board],
     :target => target word,
     :winner => nil | winning player
     :code => room code
@@ -35,9 +34,8 @@ defmodule Kwordle.Room do
         [
           fn ->
             %{
-              "a" => generate_initial_state(nil),
-              "b" => generate_initial_state(nil),
-              :game_start => false,
+              "a" => generate_initial_state(),
+              "b" => generate_initial_state(),
               :target => get_random_word(),
               :winner => nil,
               :code => code
@@ -58,7 +56,7 @@ defmodule Kwordle.Room do
     if correct_code(room_name, code) do
       update_room_state(
         room_name,
-        fn map = %{^player => [false, _, word, board]} -> %{map | player => [false, pid, word, board]} end
+        fn map = %{^player => [false, false, _, word, board]} -> %{map | player => [false, false, pid, word, board]} end
       )
     else
       # This should never trigger but may as well output something
@@ -99,8 +97,8 @@ defmodule Kwordle.Room do
   end
 
 
-  defp generate_initial_state(pid) do
-    [false, pid, "", []]
+  defp generate_initial_state() do
+    [false, false, nil, "", []]
   end
 
   defp get_room_id(room_name) do
@@ -117,7 +115,7 @@ defmodule Kwordle.Room do
 
 
   defp get_pid(room_name, player) do
-    get_room_state(room_name, fn %{^player => [_ready, pid, _word, _board]} -> pid end)
+    get_room_state(room_name, fn %{^player => [_ready, _sees_board, pid, _word, _board]} -> pid end)
   end
 
   defp get_code(room_name) do
@@ -133,7 +131,7 @@ defmodule Kwordle.Room do
   Get the current word the player is typing.
   """
   def get_word(room_name, player) do
-    get_room_state(room_name, fn %{^player => [_ready, _pid, word, _board]} -> word end)
+    get_room_state(room_name, fn %{^player => [_ready, _sees_board, _pid, word, _board]} -> word end)
   end
 
   @spec get_board(room_name :: binary, player :: binary) :: list(tuple)
@@ -142,7 +140,7 @@ defmodule Kwordle.Room do
   The board consists of a list of tuples constructed in the manner `{word, colors}`.
   """
   def get_board(room_name, player) do
-    get_room_state(room_name, fn %{^player => [_ready, _pid, _word, board]} -> Enum.reverse(board) end)
+    get_room_state(room_name, fn %{^player => [_ready, _sees_board, _pid, _word, board]} -> Enum.reverse(board) end)
   end
 
   @spec get_opponent_player(player :: binary) :: binary
@@ -171,15 +169,15 @@ defmodule Kwordle.Room do
   Get whether or not the player is ready.
   """
   def get_ready(room_name, player) do
-    get_room_state(room_name, fn %{^player => [ready, _pid, _word, _board]} -> ready end)
+    get_room_state(room_name, fn %{^player => [ready, _sees_board, _pid, _word, _board]} -> ready end)
   end
 
-  @spec get_game_start(room_name :: binary) :: boolean
+  @spec get_sees_board(room_name :: binary, player :: binary) :: boolean
   @doc """
-  Get whether or not the game has started.
+  Get whether or not the player can see the board.
   """
-  def get_game_start(room_name) do
-    get_room_state(room_name, fn %{:game_start => game_start} -> game_start end)
+  def get_sees_board(room_name, player) do
+    get_room_state(room_name, fn %{^player => [_ready, sees_board, _pid, _word, _board]} -> sees_board end)
   end
 
 
@@ -198,45 +196,71 @@ defmodule Kwordle.Room do
   Ready up to start the game. If the first player was ready then start the game.
   """
   def ready(room_name, player) do
-    update_room_state(
-      room_name,
-      fn map = %{^player => [_ready, pid, word, board]} ->
-        %{map | player => [true, pid, word, board]}
-      end
-    )
-    # Tell opponent we're ready
-    send_opponent(room_name, player, :check_opponent_ready)
-    # If the opponent was ready start the game
-    if get_ready(room_name, get_opponent_player(player)) do
+    if not get_ready(room_name, player) do
+      # Set ready
       update_room_state(
         room_name,
-        fn map = %{:game_start => false} ->
-          %{map | :game_start => true}
+        fn map = %{^player => [false, false, pid, _, _]} ->
+          %{map | player => [true, false, pid, "", []]}
         end
       )
-      send_all(room_name, :game_start)
+      # Tell opponent we're ready
+      send_opponent(room_name, player, :check_opponent_ready)
+      # If the opponent was ready start the game
+      if get_ready(room_name, get_opponent_player(player)) do
+        update_room_state(
+          room_name,
+          fn map = %{
+              "a" => [true, false, pid_a, _, _],
+              "b" => [true, false, pid_b, _, _]
+            } ->
+            %{
+              map |
+              "a" => [false, true, pid_a, "", []],
+              "b" => [false, true, pid_b, "", []]
+            }
+          end
+        )
+        send_all(room_name, :game_start)
+      end
     end
     :ok
   end
 
-  @spec reset(room_name :: binary) :: :ok
+  @spec return_to_lobby(room_name :: binary, player :: binary) :: :ok
   @doc """
-  Reset the room state.
+  Return to the lobby after a game. If the first player returned already then reset.
   """
-  def reset(room_name) do
-    update_room_state(
-      room_name,
-      fn map = %{"a" => [_, pid_a, _, _], "b" => [_, pid_b, _, _]} ->
-        %{
-          map |
-          "a" => generate_initial_state(pid_a),
-          "b" => generate_initial_state(pid_b),
-          :game_start => false,
-          :target => get_random_word(),
-          :winner => nil
-        }
+  def return_to_lobby(room_name, player) do
+    if get_sees_board(room_name, player) do
+      # Return to lobby
+      update_room_state(
+        room_name,
+        fn map = %{^player => [ready, true, pid, word, board]} ->
+          %{map | player => [ready, false, pid, word, board]}
+        end
+      )
+      # If the opponent already returned reset
+      if not get_sees_board(room_name, get_opponent_player(player)) do
+        update_room_state(
+          room_name,
+          fn map = %{
+            "a" => [ready_a, false, pid_a, _, _],
+            "b" => [ready_b, false, pid_b, _, _]
+            } ->
+            %{
+              map |
+              "a" => [ready_a, false, pid_a, "", []],
+              "b" => [ready_b, false, pid_b, "", []],
+              :target => get_random_word(),
+              :winner => nil
+            }
+          end
+        )
+        send_all(room_name, :reset)
       end
-    )
+    end
+    :ok
   end
 
   @spec append_char(room_name :: binary, c :: binary, player :: binary) :: :failed | :ok
@@ -245,11 +269,12 @@ defmodule Kwordle.Room do
   Returns `:ok` on success, else `:failed`.
   """
   def append_char(room_name, c, player) do
-    if String.length(get_word(room_name, player)) < 5 and get_winner(room_name) == nil do
+    if String.length(get_word(room_name, player)) < 5 and
+    get_sees_board(room_name, player) and get_winner(room_name) == nil do
       update_room_state(
         room_name,
-        fn map = %{^player => [true, pid, word, board]} ->
-          %{map | player => [true, pid, word <> c, board]}
+        fn map = %{^player => [ready, true, pid, word, board]} ->
+          %{map | player => [ready, true, pid, word <> c, board]}
         end
       )
     else
@@ -264,11 +289,11 @@ defmodule Kwordle.Room do
   """
   def remove_char(room_name, player) do
     len = String.length(get_word(room_name, player))
-    if len > 0 do
+    if len > 0 and get_sees_board(room_name, player) do
       update_room_state(
         room_name,
-        fn map = %{^player => [true, pid, word, board]} ->
-          %{map | player => [true, pid, String.slice(word, 0, len - 1), board]}
+        fn map = %{^player => [ready, true, pid, word, board]} ->
+          %{map | player => [ready, true, pid, String.slice(word, 0, len - 1), board]}
         end
       )
     else
@@ -284,13 +309,14 @@ defmodule Kwordle.Room do
   def submit_word(room_name, player) do
     IO.puts(get_hidden_word(room_name))
     word = get_word(room_name, player)
-    if length(get_board(room_name, player)) < 6 and String.length(word) == 5 and valid_word(word) do
+    if length(get_board(room_name, player)) < 6 and String.length(word) == 5 and valid_word(word) and
+    get_sees_board(room_name, player) and get_winner(room_name) == nil do
       # Add word to board
       colors = check_word(get_hidden_word(room_name), word)
       update_room_state(
         room_name,
-        fn map = %{^player => [true, pid, word, board]} ->
-          %{map | player => [true, pid, "", [{word, colors} | board]]}
+        fn map = %{^player => [ready, true, pid, word, board]} ->
+          %{map | player => [ready, true, pid, "", [{word, colors} | board]]}
         end
       )
 
@@ -300,8 +326,8 @@ defmodule Kwordle.Room do
         opponent = get_opponent_player(player)
         update_room_state(
           room_name,
-          fn map = %{^opponent => [true, pid, _word, board]} ->
-            %{map | opponent => [true, pid, "", board], :winner => player}
+          fn map = %{^opponent => [ready, true, pid, _word, board]} ->
+            %{map | opponent => [ready, true, pid, "", board], :winner => player}
           end
         )
         send_all(room_name, :game_finished)

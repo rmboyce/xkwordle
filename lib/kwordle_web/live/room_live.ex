@@ -28,7 +28,7 @@ defmodule KwordleWeb.RoomLive do
         |> assign(:winner, Room.get_winner(room))
         |> assign(:ready, Room.get_ready(room, player))
         |> assign(:opponent_ready, Room.get_ready(room, Room.get_opponent_player(player)))
-        |> assign(:game_start, Room.get_game_start(room))
+        |> assign(:sees_board, Room.get_sees_board(room, player))
       }
     end
   end
@@ -62,18 +62,17 @@ defmodule KwordleWeb.RoomLive do
 
   def handle_info(:game_start, socket) do
     # Start game
-    %{assigns: %{room: room}} = socket
+    %{assigns: %{room: room, player: player}} = socket
     {:noreply, socket
-      |> assign(:game_start, Room.get_game_start(room))
+      |> assign(:ready, Room.get_ready(room, player))
+      |> assign(:opponent_ready, Room.get_ready(room, Room.get_opponent_player(player)))
+      |> assign(:sees_board, Room.get_sees_board(room, player))
     }
   end
 
-
-  def handle_event("key_down", _params = %{"key" => "Enter"}, socket)
-  when socket.assigns.winner != nil do
-    # Resetting to new game
+  def handle_info(:reset, socket) do
+    # Resetting game
     %{assigns: %{room: room, player: player}} = socket
-    Room.reset(room)
     {:noreply, socket
       |> assign(:cur_word, Room.get_word(room, player))
       |> assign(:board, Room.get_board(room, player))
@@ -81,12 +80,23 @@ defmodule KwordleWeb.RoomLive do
       |> assign(:winner, Room.get_winner(room))
       |> assign(:ready, Room.get_ready(room, player))
       |> assign(:opponent_ready, Room.get_ready(room, Room.get_opponent_player(player)))
-      |> assign(:game_start, Room.get_game_start(room))
+      |> assign(:sees_board, Room.get_sees_board(room, player))
+    }
+  end
+
+
+  def handle_event("key_down", _params = %{"key" => "Enter"}, socket)
+  when socket.assigns.sees_board and socket.assigns.winner != nil do
+    # Exit to lobby
+    %{assigns: %{room: room, player: player}} = socket
+    Room.return_to_lobby(room, player)
+    {:noreply, socket
+      |> assign(:sees_board, Room.get_sees_board(room, player))
     }
   end
 
   def handle_event("key_down", _params = %{"key" => "Enter"}, socket)
-  when socket.assigns.ready do
+  when socket.assigns.sees_board do
     # Submitting words
     %{assigns: %{room: room, player: player}} = socket
     Room.submit_word(room, player)

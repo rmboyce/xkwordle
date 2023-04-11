@@ -11,19 +11,11 @@
   </head>
   <body>
     <header>
-      <section class="container">
-        <nav>
-          <ul>
-            <li><a href="https://hexdocs.pm/phoenix/overview.html">Get Started</a></li>
-            <%= if function_exported?(Routes, :live_dashboard_path, 2) do %>
-              <li><%= link "LiveDashboard", to: Routes.live_dashboard_path(@conn, :home) %></li>
-            <% end %>
-          </ul>
-        </nav>
-        <a href="https://phoenixframework.org/" class="phx-logo">
-          <img src={Routes.static_path(@conn, "/images/phoenix.png")} alt="Phoenix Framework Logo"/>
-        </a>
-      </section>
+      <div class="sticky top-0 bg-white bg-opacity-50 backdrop-blur flex items-center gap-6 items-end p-2 pl-4 mx-4 mb-6 border-b">
+        <a href="/" class="font-bold text-3xl hover:text-rose-600 duration-150">xkwordle</a>
+        •
+        <a href="/about" class="text-gray-600 hover:text-rose-600 duration-150">About</a>
+      </div>
     </header>
     <%= @inner_content %>
   </body>

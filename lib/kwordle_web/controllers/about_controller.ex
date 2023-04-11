@@ -1,4 +1,4 @@
-defmodule KwordleWeb.CreateRoomController do
+defmodule KwordleWeb.AboutController do
   use KwordleWeb, :controller
 
   def index(conn, _params) do

@@ -3,33 +3,24 @@ defmodule KwordleWeb.Components.RoomComponents do
 
   def lobby(assigns) do
     ~H"""
-    <p>In room <%= @room %></p>
-    <p><%= ready_text(@ready) %></p>
-    <p><%= opponent_ready_text(@opponent_ready) %></p>
+    <p class="text-2xl font-medium self-center mb-4">Room <%= @room %></p>
+    <p><%= ready_text(@ready, @opponent_ready) %></p>
     """
   end
 
-  defp ready_text(ready) do
-    if ready do
-      "Ready!"
-    else
-      "Not ready! Press enter to ready"
-    end
-  end
-
-  defp opponent_ready_text(opponent_ready) do
-    if opponent_ready do
-      "Opponent ready!"
-    else
-      "Opponent not ready!"
+  defp ready_text(ready, opponent_ready) do
+    cond do
+      ready -> "Ready!"
+      opponent_ready -> "Not ready, opponent is ready! Press enter to ready..."
+      true -> "Not ready! Press enter to ready..."
     end
   end
 
 
   def end_screen(assigns) do
     ~H"""
-    <h2 class="flex justify-center"><%= end_screen_text(@player, @winner) %></h2>
-    <p>Press enter to return to the room lobby!</p>
+    <p class="text-2xl font-medium self-center mb-4"><%= end_screen_text(@player, @winner) %></p>
+    <p class="mb-4">Press enter to return to the room lobby!</p>
     """
   end
 
@@ -75,11 +66,11 @@ defmodule KwordleWeb.Components.RoomComponents do
 
   def show_word(assigns) do
     ~H"""
-    <div class="grid grid-cols-5 gap-5">
+    <div class="grid grid-cols-5 gap-4">
       <%= for {char, color} <- format_word(@word, @colors) do %>
         <div class={"w-full aspect-square
         inline-flex justify-center items-center
-        text-4xl leading-none font-bold align-middle box-border uppercase border-2
+        text-3xl leading-none font-medium align-middle box-border uppercase border-2
         #{color_style(color)}"}>
           <%= char %>
         </div>

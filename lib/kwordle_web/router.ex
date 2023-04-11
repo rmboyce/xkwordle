@@ -19,6 +19,7 @@ defmodule KwordleWeb.Router do
 
     live "/", CreateRoomLive
     live "/room/:room", RoomLive
+    get "/about", AboutController, :index
     get "/page", PageController, :index
   end
 
